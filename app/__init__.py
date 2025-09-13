@@ -2,7 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from .config import Config
+from config import Config
 from .api import api_bp
 import logging
 
@@ -27,3 +27,5 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp, url_prefix='/api')
 
     return app
+
+app = create_app()
