@@ -3,123 +3,382 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI API Tester</title>
+    <title>multiple GPT API Playground</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #chat { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
-        input, select { margin: 5px; padding: 5px; }
-        button { padding: 5px 10px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .playground {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .input-section, .output-section {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .section-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        select, textarea, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, textarea:focus, input:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .response-area {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .endpoints {
+            background: #f1f5f9;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+        }
+        
+        .endpoint {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4f46e5;
+        }
+        
+        .endpoint-method {
+            font-weight: 600;
+            color: #4f46e5;
+        }
+        
+        .endpoint-url {
+            font-family: 'Courier New', monospace;
+            background: #f8fafc;
+            padding: 5px 8px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .playground {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>AI Chat API Tester</h1>
-    <div>
-        <select id="model">
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            <option value="claude-3">Claude-3</option>
-            <option value="gemini">Gemini</option>
-        </select>
-        <input type="text" id="session" placeholder="Session ID" value="default">
-        <label><input type="checkbox" id="stream"> Stream</label>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 GPT API Playground</h1>
+            <p>Test and interact with multiple AI models through our API</p>
+        </div>
+        
+        <div class="playground">
+            <div class="input-section">
+                <h2 class="section-title">🎮 API Testing</h2>
+                
+                <div class="form-group">
+                    <label for="model">Select Model:</label>
+                    <select id="model">
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        <option value="claude-3-haiku">Claude 3 Haiku</option>
+                        <option value="gemini-pro">Gemini Pro</option>
+                        <option value="llama-2-7b">Llama 2 7B</option>
+                        <option value="mixtral-8x7b">Mixtral 8x7B</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="message">Your Message:</label>
+                    <textarea id="message" placeholder="Type your message here...">Hello! How are you?</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sessionId">Session ID (optional):</label>
+                    <input type="text" id="sessionId" placeholder="Leave empty for default session">
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-primary" onclick="sendMessage()">💬 Send Message</button>
+                    <button class="btn-secondary" onclick="testHealth()">🏥 Test Health</button>
+                    <button class="btn-secondary" onclick="getModels()">📋 Get Models</button>
+                    <button class="btn-secondary" onclick="clearResponse()">🗑️ Clear</button>
+                </div>
+            </div>
+            
+            <div class="output-section">
+                <h2 class="section-title">📤 API Response</h2>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Processing your request...</p>
+                </div>
+                <div class="response-area" id="response">
+                    Click a button to test the API endpoints...
+                </div>
+            </div>
+        </div>
+        
+        <div class="endpoints">
+            <h2 class="section-title">📚 Available Endpoints</h2>
+            
+            <div class="endpoint">
+                <div class="endpoint-method">GET</div>
+                <div class="endpoint-url">/api/health</div>
+                <p>Check API health status</p>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-method">GET</div>
+                <div class="endpoint-url">/api/models</div>
+                <p>Get list of available AI models</p>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-method">POST</div>
+                <div class="endpoint-url">/api/chat</div>
+                <p>Chat with AI using any available model</p>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-method">POST</div>
+                <div class="endpoint-url">/api/chat/{model}</div>
+                <p>Chat with a specific AI model</p>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-method">GET</div>
+                <div class="endpoint-url">/api/history/{session_id}</div>
+                <p>Get chat history for a session</p>
+            </div>
+        </div>
     </div>
-    <div>
-        <input type="text" id="message" placeholder="Enter your message" style="width: 300px;">
-        <button onclick="sendMessage()">Send</button>
-        <button onclick="clearChat()">Clear Chat</button>
-    </div>
-    <div id="chat"></div>
 
     <script>
-        const chatDiv = document.getElementById('chat');
-
+        const API_BASE = window.location.origin;
+        
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('response').style.display = 'none';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('response').style.display = 'block';
+        }
+        
+        function displayResponse(data) {
+            document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+        }
+        
         async function sendMessage() {
             const model = document.getElementById('model').value;
             const message = document.getElementById('message').value;
-            const session = document.getElementById('session').value;
-            const stream = document.getElementById('stream').checked;
-
-            if (!message) return;
-
-            appendMessage('You', message);
-
-            const payload = {
-                model: model,
-                messages: [{role: 'user', content: message}],
-                session_id: session,
-                stream: stream
-            };
-
-            if (stream) {
-                const response = await fetch('/api/chat', {
+            const sessionId = document.getElementById('sessionId').value || 'playground-session';
+            
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ role: 'user', content: message }],
+                        session_id: sessionId
+                    })
                 });
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, {stream: true});
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
-                            if (data.startsWith('error:')) {
-                                appendMessage('Error', data.slice(6));
-                            } else {
-                                appendMessage('AI', data);
-                            }
-                        }
-                    }
-                }
-            } else {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
+                
                 const data = await response.json();
-                if (data.error) {
-                    appendMessage('Error', data.error);
-                } else {
-                    appendMessage('AI', data.response);
-                }
+                displayResponse(data);
+            } catch (error) {
+                displayResponse({ error: error.message });
+            } finally {
+                hideLoading();
             }
-
-            document.getElementById('message').value = '';
         }
-
-        function appendMessage(sender, text) {
-            const p = document.createElement('p');
-            p.innerHTML = `<strong>${sender}:</strong> ${text}`;
-            chatDiv.appendChild(p);
-            chatDiv.scrollTop = chatDiv.scrollHeight;
-        }
-
-        function clearChat() {
-            chatDiv.innerHTML = '';
-        }
-
-        // Load models on page load
-        window.onload = async () => {
-            const response = await fetch('/api/models');
-            const data = await response.json();
-            const select = document.getElementById('model');
-            select.innerHTML = '';
-            for (const provider in data.models) {
-                for (const model of data.models[provider]) {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    option.text = `${provider}: ${model}`;
-                    select.appendChild(option);
-                }
+        
+        async function testHealth() {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const data = await response.json();
+                displayResponse(data);
+            } catch (error) {
+                displayResponse({ error: error.message });
+            } finally {
+                hideLoading();
             }
-        };
+        }
+        
+        async function getModels() {
+            showLoading();
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/models`);
+                const data = await response.json();
+                displayResponse(data);
+            } catch (error) {
+                displayResponse({ error: error.message });
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function clearResponse() {
+            document.getElementById('response').textContent = 'Response cleared. Ready for new requests...';
+        }
+        
+        // Test API on page load
+        window.addEventListener('load', function() {
+            testHealth();
+        });
     </script>
 </body>
 </html>
