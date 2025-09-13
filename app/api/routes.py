@@ -1,368 +1,318 @@
-from flask import request, jsonify, Response, stream_with_context
-from . import api_bp
+from flask import Blueprint, request, jsonify
 import g4f
-import logging
+import asyncio
+import json
+from datetime import datetime
+import uuid
 
-# In-memory chat history (for demo, use session_id)
-chat_histories = {}
+api_bp = Blueprint('api', __name__)
 
-@api_bp.route('/')
-def root():
+# Store chat history in memory (for demo purposes)
+chat_history = {}
+
+def get_session_id():
+    """Get or create session ID"""
+    session_id = request.args.get('session_id') or request.json.get('session_id') if request.json else None
+    if not session_id:
+        session_id = request.headers.get('X-Session-ID', 'browser-session')
+    return session_id
+
+def save_to_history(session_id, role, content, model=None):
+    """Save message to chat history"""
+    if session_id not in chat_history:
+        chat_history[session_id] = []
+    
+    chat_history[session_id].append({
+        'role': role,
+        'content': content,
+        'model': model,
+        'timestamp': datetime.now().isoformat()
+    })
+
+async def get_ai_response_async(model, message):
+    """Get AI response using g4f with multiple fallback providers"""
+    try:
+        # List of providers to try in order
+        providers = [
+            g4f.Provider.Bing,
+            g4f.Provider.ChatgptAi,
+            g4f.Provider.GPTalk,
+            g4f.Provider.Liaobots,
+            None  # Auto provider selection
+        ]
+        
+        for provider in providers:
+            try:
+                print(f"Trying provider: {provider}")
+                response = await g4f.ChatCompletion.acreate(
+                    model=model,
+                    messages=[{"role": "user", "content": message}],
+                    provider=provider
+                )
+                
+                if response and len(response.strip()) > 0:
+                    print(f"Success with provider: {provider}")
+                    return response.strip(), "success", str(provider) if provider else "auto"
+                    
+            except Exception as e:
+                print(f"Provider {provider} failed: {str(e)}")
+                continue
+        
+        # If all providers fail, try synchronous version
+        try:
+            response = g4f.ChatCompletion.create(
+                model=model,
+                messages=[{"role": "user", "content": message}]
+            )
+            if response and len(response.strip()) > 0:
+                return response.strip(), "success", "sync"
+        except Exception as e:
+            print(f"Sync method also failed: {str(e)}")
+        
+        return None, "failed", "all_providers_failed"
+        
+    except Exception as e:
+        print(f"Error in get_ai_response_async: {str(e)}")
+        return None, "error", str(e)
+
+def get_ai_response_sync(model, message):
+    """Synchronous wrapper for AI response"""
+    try:
+        # Try direct synchronous call first
+        response = g4f.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": message}]
+        )
+        
+        if response and len(response.strip()) > 0:
+            return response.strip(), "success", "sync"
+        
+        # If that fails, try with specific providers
+        providers = [g4f.Provider.Bing, g4f.Provider.ChatgptAi, g4f.Provider.GPTalk]
+        
+        for provider in providers:
+            try:
+                response = g4f.ChatCompletion.create(
+                    model=model,
+                    messages=[{"role": "user", "content": message}],
+                    provider=provider
+                )
+                
+                if response and len(response.strip()) > 0:
+                    return response.strip(), "success", str(provider)
+                    
+            except Exception as e:
+                print(f"Provider {provider} failed: {str(e)}")
+                continue
+        
+        return None, "failed", "all_providers_failed"
+        
+    except Exception as e:
+        print(f"Error in get_ai_response_sync: {str(e)}")
+        return None, "error", str(e)
+
+@api_bp.route('/', methods=['GET', 'POST'])
+def api_info():
+    """API information and available endpoints"""
     return jsonify({
-        'message': 'GPT API is running',
-        'status': 'healthy',
-        'version': '1.0.0',
-        'endpoints': {
-            'health': '/api/health',
-            'models': '/api/models', 
-            'chat': '/api/chat (GET for info, POST for chat)',
-            'chat_with_model': '/api/chat/<model> (GET for info, POST for chat)',
-            'history': '/api/history/<session_id>',
-            'playground': '/index.html'
+        "api": "G4F Chat API",
+        "version": "1.0",
+        "status": "active",
+        "endpoints": {
+            "/api/health": "Health check",
+            "/api/models": "List available models",
+            "/api/chat": "Chat with default model (POST: {message, model?, session_id?})",
+            "/api/chat/<model>": "Chat with specific model",
+            "/api/history/<session_id>": "Get chat history"
         },
-        'usage': {
-            'chat_example': {
-                'url': '/api/chat',
-                'method': 'POST',
-                'body': {
-                    'model': 'gpt-3.5-turbo',
-                    'messages': [{'role': 'user', 'content': 'Hello!'}],
-                    'session_id': 'optional_session_id'
-                }
-            }
+        "usage": {
+            "POST": "Send JSON with 'message' field",
+            "GET": "Add ?test=true&message=your_message for testing"
         }
     })
 
 @api_bp.route('/health', methods=['GET', 'POST'])
-def health():
+def health_check():
+    """Health check endpoint"""
     return jsonify({
-        'status': 'healthy', 
-        'message': 'API is running perfectly',
-        'timestamp': '2025-09-13',
-        'server': 'Flask + g4f',
-        'endpoints_available': 5
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "g4f_available": True,
+        "method": request.method
     })
 
 @api_bp.route('/models', methods=['GET', 'POST'])
-def list_models():
-    try:
-        # Return working models from g4f
-        available_models = [
-            {
-                'name': 'gpt-3.5-turbo',
-                'provider': 'OpenAI',
-                'status': 'available'
-            },
-            {
-                'name': 'gpt-4',
-                'provider': 'OpenAI', 
-                'status': 'available'
-            },
-            {
-                'name': 'gpt-4o-mini',
-                'provider': 'OpenAI',
-                'status': 'available'
-            },
-            {
-                'name': 'claude-3-haiku',
-                'provider': 'Anthropic',
-                'status': 'available'
-            },
-            {
-                'name': 'gemini-pro',
-                'provider': 'Google',
-                'status': 'available'
-            },
-            {
-                'name': 'llama-2-7b',
-                'provider': 'Meta',
-                'status': 'available'
-            },
-            {
-                'name': 'mixtral-8x7b',
-                'provider': 'Mistral',
-                'status': 'available'
-            }
-        ]
-        return jsonify({
-            'models': available_models,
-            'total_count': len(available_models),
-            'status': 'success',
-            'message': 'All models are ready to use'
-        })
-    except Exception as e:
-        logging.error(f"Error listing models: {str(e)}")
-        return jsonify({'error': 'Failed to list models', 'details': str(e)}), 500
+def get_models():
+    """Get available AI models"""
+    models = [
+        "gpt-3.5-turbo",
+        "gpt-4",
+        "gpt-4-turbo",
+        "claude-3-haiku",
+        "claude-3-sonnet",
+        "gemini-pro",
+        "llama-2-7b",
+        "llama-2-13b",
+        "mistral-7b"
+    ]
+    
+    return jsonify({
+        "models": models,
+        "total": len(models),
+        "method": request.method,
+        "note": "All models are available through g4f providers"
+    })
 
 @api_bp.route('/chat', methods=['GET', 'POST'])
 def chat():
-    if request.method == 'GET':
-        # Handle GET request with query parameters for testing
-        model = request.args.get('model', 'gpt-3.5-turbo')
-        message = request.args.get('message', 'Hello! How are you?')
-        session_id = request.args.get('session_id', 'browser-session')
-        
-        if request.args.get('test') == 'true':
-            # Actually process the chat for GET requests with test=true
-            try:
-                messages = [{'role': 'user', 'content': message}]
-                
-                if session_id not in chat_histories:
-                    chat_histories[session_id] = []
-                
-                chat_histories[session_id].append({'role': 'user', 'content': message})
-                
-                try:
-                    response = g4f.ChatCompletion.create(
-                        model=model, 
-                        messages=chat_histories[session_id],
-                        provider=g4f.Provider.Auto
-                    )
-                    chat_histories[session_id].append({'role': 'assistant', 'content': response})
-                    return jsonify({
-                        'response': response,
-                        'session_id': session_id,
-                        'model': model,
-                        'status': 'success',
-                        'method': 'GET',
-                        'message': 'Chat completed successfully via GET request'
-                    })
-                except Exception as model_error:
-                    fallback_response = f"Hello! I'm {model} AI assistant. You said: '{message}'. I'm working through g4f API. How can I help you today?"
-                    chat_histories[session_id].append({'role': 'assistant', 'content': fallback_response})
-                    return jsonify({
-                        'response': fallback_response,
-                        'session_id': session_id,
-                        'model': model,
-                        'status': 'fallback',
-                        'method': 'GET',
-                        'note': 'Using fallback response - model may be temporarily unavailable'
-                    })
-            except Exception as e:
-                return jsonify({'error': 'Chat processing failed', 'details': str(e)}), 500
-        else:
-            # Return usage information for GET without test parameter
-            return jsonify({
-                'message': 'Chat endpoint - supports both GET and POST',
-                'get_usage': {
-                    'description': 'Use GET with query parameters for quick testing',
-                    'example_url': '/api/chat?model=gpt-3.5-turbo&message=Hello&test=true&session_id=my-session',
-                    'parameters': {
-                        'model': 'AI model to use (optional, default: gpt-3.5-turbo)',
-                        'message': 'Your message to the AI (optional, default: Hello! How are you?)',
-                        'session_id': 'Session identifier (optional, default: browser-session)',
-                        'test': 'Set to "true" to actually process the chat'
-                    }
-                },
-                'post_usage': {
-                    'description': 'Use POST for full API functionality',
-                    'example': {
-                        'method': 'POST',
-                        'url': '/api/chat',
-                        'body': {
-                            'model': model,
-                            'messages': [{'role': 'user', 'content': message}],
-                            'session_id': session_id,
-                            'stream': False
-                        }
-                    }
-                }
-            })
-    
-    # Handle POST request
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-
-        model = data.get('model', 'gpt-3.5-turbo')
-        messages = data.get('messages', [])
-        stream = data.get('stream', False)
-        session_id = data.get('session_id', 'default')
-
-        if not messages:
-            return jsonify({'error': 'Messages are required'}), 400
-
-        # Update chat history
-        if session_id not in chat_histories:
-            chat_histories[session_id] = []
-        
-        # Add new messages to history
-        for msg in messages:
-            if msg not in chat_histories[session_id]:
-                chat_histories[session_id].append(msg)
-
-        if stream:
-            return Response(stream_with_context(generate_stream(model, chat_histories[session_id])), content_type='text/plain')
-        else:
-            try:
-                response = g4f.ChatCompletion.create(
-                    model=model, 
-                    messages=chat_histories[session_id],
-                    provider=g4f.Provider.Auto
-                )
-                chat_histories[session_id].append({'role': 'assistant', 'content': response})
-                return jsonify({
-                    'response': response, 
-                    'session_id': session_id,
-                    'model': model,
-                    'status': 'success',
-                    'method': 'POST'
-                })
-            except Exception as model_error:
-                logging.error(f"Model error: {str(model_error)}")
-                fallback_response = f"Hello! I'm {model} AI assistant. You asked: '{messages[-1].get('content', 'Hello')}'. I'm working through g4f API. How can I help you?"
-                chat_histories[session_id].append({'role': 'assistant', 'content': fallback_response})
-                return jsonify({
-                    'response': fallback_response,
-                    'session_id': session_id,
-                    'model': model,
-                    'status': 'fallback',
-                    'method': 'POST',
-                    'note': 'Using fallback response due to model unavailability'
-                })
-
-    except Exception as e:
-        logging.error(f"Error in chat: {str(e)}")
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
-
-@api_bp.route('/chat/<model>', methods=['GET', 'POST'])
-def chat_model(model):
+    """Chat with AI using default model"""
     if request.method == 'GET':
         # Handle GET request with query parameters
-        message = request.args.get('message', f'Hello! I want to test {model}')
-        session_id = request.args.get('session_id', f'browser-{model}-session')
-        
-        if request.args.get('test') == 'true':
-            # Actually process the chat for GET requests
-            try:
-                if session_id not in chat_histories:
-                    chat_histories[session_id] = []
-                
-                chat_histories[session_id].append({'role': 'user', 'content': message})
-                
-                try:
-                    response = g4f.ChatCompletion.create(
-                        model=model, 
-                        messages=chat_histories[session_id],
-                        provider=g4f.Provider.Auto
-                    )
-                    chat_histories[session_id].append({'role': 'assistant', 'content': response})
-                    return jsonify({
-                        'response': response,
-                        'session_id': session_id,
-                        'model': model,
-                        'status': 'success',
-                        'method': 'GET',
-                        'message': f'Successfully chatted with {model} via GET request'
-                    })
-                except Exception as model_error:
-                    fallback_response = f"Hi! I'm {model} AI model. You said: '{message}'. I'm powered by g4f and ready to help you!"
-                    chat_histories[session_id].append({'role': 'assistant', 'content': fallback_response})
-                    return jsonify({
-                        'response': fallback_response,
-                        'session_id': session_id,
-                        'model': model,
-                        'status': 'fallback',
-                        'method': 'GET',
-                        'note': f'{model} is using fallback response - may be temporarily unavailable'
-                    })
-            except Exception as e:
-                return jsonify({'error': f'Chat with {model} failed', 'details': str(e)}), 500
-        else:
+        test_mode = request.args.get('test', '').lower() == 'true'
+        if not test_mode:
             return jsonify({
-                'message': f'Chat with {model} - supports both GET and POST',
-                'model': model,
-                'get_usage': {
-                    'description': f'Use GET to quickly test {model}',
-                    'example_url': f'/api/chat/{model}?message=Hello {model}&test=true&session_id=my-session',
-                    'parameters': {
-                        'message': f'Your message to {model} (optional)',
-                        'session_id': 'Session identifier (optional)',
-                        'test': 'Set to "true" to actually chat with the model'
-                    }
+                "endpoint": "/api/chat",
+                "method": "POST",
+                "required": {"message": "Your message to AI"},
+                "optional": {"model": "AI model (default: gpt-3.5-turbo)", "session_id": "Session identifier"},
+                "example": {
+                    "message": "Hello, what is AI?",
+                    "model": "gpt-3.5-turbo"
                 },
-                'post_usage': {
-                    'description': f'Use POST for full {model} functionality',
-                    'example': {
-                        'method': 'POST',
-                        'url': f'/api/chat/{model}',
-                        'body': {
-                            'messages': [{'role': 'user', 'content': message}],
-                            'session_id': session_id,
-                            'stream': False
-                        }
-                    }
-                }
+                "test_url": "/api/chat?test=true&message=Hello&model=gpt-3.5-turbo"
             })
-    
-    # Handle POST request
-    try:
-        data = request.get_json()
-        messages = data.get('messages', [])
-        stream = data.get('stream', False)
-        session_id = data.get('session_id', 'default')
-
-        if not messages:
-            return jsonify({'error': 'Messages are required'}), 400
-
-        if session_id not in chat_histories:
-            chat_histories[session_id] = []
         
-        # Add new messages to history
-        for msg in messages:
-            if msg not in chat_histories[session_id]:
-                chat_histories[session_id].append(msg)
-
-        if stream:
-            return Response(stream_with_context(generate_stream(model, chat_histories[session_id])), content_type='text/plain')
-        else:
-            try:
-                response = g4f.ChatCompletion.create(
-                    model=model, 
-                    messages=chat_histories[session_id],
-                    provider=g4f.Provider.Auto
-                )
-                chat_histories[session_id].append({'role': 'assistant', 'content': response})
-                return jsonify({
-                    'response': response, 
-                    'session_id': session_id,
-                    'model': model,
-                    'status': 'success',
-                    'method': 'POST'
-                })
-            except Exception as model_error:
-                logging.error(f"Model {model} error: {str(model_error)}")
-                fallback_response = f"Hello! I'm {model} AI assistant. You asked: '{messages[-1].get('content', 'Hello')}'. I'm powered by g4f. How can I assist you?"
-                chat_histories[session_id].append({'role': 'assistant', 'content': fallback_response})
-                return jsonify({
-                    'response': fallback_response,
-                    'session_id': session_id,
-                    'model': model,
-                    'status': 'fallback',
-                    'method': 'POST',
-                    'note': f'{model} using fallback response due to temporary unavailability'
-                })
-
-    except Exception as e:
-        logging.error(f"Error in chat/{model}: {str(e)}")
-        return jsonify({'error': f'Internal server error with {model}', 'details': str(e)}), 500
-
-@api_bp.route('/history/<session_id>', methods=['GET', 'POST'])
-def get_history(session_id):
-    history = chat_histories.get(session_id, [])
-    return jsonify({
-        'history': history,
-        'session_id': session_id,
-        'message_count': len(history),
-        'status': 'success',
-        'message': f'Retrieved {len(history)} messages for session {session_id}'
-    })
-
-def generate_stream(model, messages):
+        # Test mode - get message from query params
+        message = request.args.get('message', 'Hello, how are you?')
+        model = request.args.get('model', 'gpt-3.5-turbo')
+        session_id = get_session_id()
+    else:
+        # Handle POST request
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' in request body"}), 400
+        
+        message = data['message']
+        model = data.get('model', 'gpt-3.5-turbo')
+        session_id = get_session_id()
+    
+    # Save user message to history
+    save_to_history(session_id, 'user', message, model)
+    
+    # Get AI response
     try:
-        for chunk in g4f.ChatCompletion.create(model=model, messages=messages, stream=True):
-            yield f"data: {chunk}\n\n"
+        ai_response, status, provider = get_ai_response_sync(model, message)
+        
+        if status == "success" and ai_response:
+            # Save AI response to history
+            save_to_history(session_id, 'assistant', ai_response, model)
+            
+            return jsonify({
+                "response": ai_response,
+                "model": model,
+                "session_id": session_id,
+                "status": "success",
+                "provider": provider,
+                "method": request.method
+            })
+        else:
+            # Fallback response
+            fallback_response = f"Hello! I'm {model} AI assistant. You said: '{message}'. I'm working through g4f API. How can I help you today?"
+            save_to_history(session_id, 'assistant', fallback_response, model)
+            
+            return jsonify({
+                "response": fallback_response,
+                "model": model,
+                "session_id": session_id,
+                "status": "fallback",
+                "note": f"Using fallback response - {provider}",
+                "method": request.method
+            })
+            
     except Exception as e:
-        logging.error(f"Streaming error: {str(e)}")
-        yield f"data: error: {str(e)}\n\n"
+        return jsonify({
+            "error": f"Failed to get AI response: {str(e)}",
+            "model": model,
+            "session_id": session_id,
+            "status": "error"
+        }), 500
+
+@api_bp.route('/chat/<model>', methods=['GET', 'POST'])
+def chat_with_model(model):
+    """Chat with specific AI model"""
+    if request.method == 'GET':
+        # Handle GET request with query parameters
+        test_mode = request.args.get('test', '').lower() == 'true'
+        if not test_mode:
+            return jsonify({
+                "endpoint": f"/api/chat/{model}",
+                "model": model,
+                "method": "POST",
+                "required": {"message": "Your message to AI"},
+                "optional": {"session_id": "Session identifier"},
+                "example": {"message": f"Hello {model}, what can you do?"},
+                "test_url": f"/api/chat/{model}?test=true&message=Hello"
+            })
+        
+        # Test mode - get message from query params
+        message = request.args.get('message', f'Hello {model}, how are you?')
+        session_id = get_session_id()
+    else:
+        # Handle POST request
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({"error": "Missing 'message' in request body"}), 400
+        
+        message = data['message']
+        session_id = get_session_id()
+    
+    # Save user message to history
+    save_to_history(session_id, 'user', message, model)
+    
+    # Get AI response
+    try:
+        ai_response, status, provider = get_ai_response_sync(model, message)
+        
+        if status == "success" and ai_response:
+            # Save AI response to history
+            save_to_history(session_id, 'assistant', ai_response, model)
+            
+            return jsonify({
+                "response": ai_response,
+                "model": model,
+                "session_id": session_id,
+                "status": "success",
+                "provider": provider,
+                "method": request.method
+            })
+        else:
+            # Fallback response
+            fallback_response = f"Hello! I'm {model} AI assistant. You said: '{message}'. I'm working through g4f API. How can I help you today?"
+            save_to_history(session_id, 'assistant', fallback_response, model)
+            
+            return jsonify({
+                "response": fallback_response,
+                "model": model,
+                "session_id": session_id,
+                "status": "fallback",
+                "note": f"Using fallback response - {provider}",
+                "method": request.method
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to get AI response: {str(e)}",
+            "model": model,
+            "session_id": session_id,
+            "status": "error"
+        }), 500
+
+@api_bp.route('/history/<session_id>', methods=['GET'])
+def get_history(session_id):
+    """Get chat history for a session"""
+    history = chat_history.get(session_id, [])
+    return jsonify({
+        "session_id": session_id,
+        "history": history,
+        "total_messages": len(history)
+    })
