@@ -16,8 +16,12 @@ def create_app(config_class=Config):
     # CORS
     CORS(app)
 
-    # Rate limiting
-    limiter = Limiter(key_func=get_remote_address)\r?\n    limiter.init_app(app, default_limits=[app.config['RATELIMIT_DEFAULT']])
+    # Rate limiting - Fixed initialization
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=[app.config['RATELIMIT_DEFAULT']]
+    )
 
     # Register blueprints
     app.register_blueprint(api_bp, url_prefix='/api')
@@ -25,5 +29,3 @@ def create_app(config_class=Config):
     return app
 
 app = create_app()
-
-
