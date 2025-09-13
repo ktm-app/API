@@ -1,0 +1,58 @@
+# Render deployment configuration for Enhanced Puter API Wrapper
+# This file configures your application for deployment on Render.com
+
+services:
+  - type: web
+    name: enhanced-puter-api
+    env: python
+    plan: starter  # Use 'starter' for free tier, upgrade as needed
+
+    # Build configuration
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 run:app
+
+    # Environment configuration
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: LOG_TO_STDOUT
+        value: true
+      - key: LOG_LEVEL
+        value: INFO
+
+    # Health check configuration
+    healthCheckPath: /api/health
+
+    # Auto-deploy configuration
+    autoDeploy: true
+
+    # Disk configuration (if needed for file uploads)
+    # disk:
+    #   name: enhanced-puter-data
+    #   mountPath: /opt/render/project/src/uploads
+    #   sizeGB: 1
+
+# Environment Variables (Set these in Render Dashboard)
+# Required:
+# - PUTER_USERNAME: Your Puter username
+# - PUTER_PASSWORD: Your Puter password
+#
+# Optional:
+# - SECRET_KEY: Flask secret key (will be auto-generated if not set)
+# - CORS_ORIGINS: Comma-separated list of allowed origins (default: *)
+# - PUTER_TEST_MODE: Set to 'true' to enable test mode (default: false)
+# - REDIS_URL: Redis connection string for rate limiting (optional)
+# - RATELIMIT_ENABLED: Set to 'true' to enable rate limiting (requires REDIS_URL)
+
+# Deployment Notes:
+# 1. Fork/clone this repository to your GitHub account
+# 2. Connect your GitHub account to Render
+# 3. Create a new Web Service on Render
+# 4. Select this repository
+# 5. Render will automatically detect the render.yaml file
+# 6. Set the required environment variables (PUTER_USERNAME, PUTER_PASSWORD)
+# 7. Deploy!
+#
+# Your API will be available at: https://your-service-name.onrender.com
