@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>multiple GPT API Playground</title>
+    <title>G4F Chat API Playground</title>
     <style>
         * {
             margin: 0;
@@ -28,7 +28,7 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -37,32 +37,41 @@
         .header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         
         .header p {
+            font-size: 1.2em;
             opacity: 0.9;
-            font-size: 1.1em;
         }
         
-        .playground {
-            padding: 30px;
+        .main-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
+            padding: 30px;
         }
         
-        .input-section, .output-section {
-            background: #f8fafc;
-            padding: 25px;
+        .chat-section {
+            background: #f8f9fa;
             border-radius: 10px;
-            border: 1px solid #e2e8f0;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .api-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
         }
         
         .section-title {
-            font-size: 1.3em;
-            font-weight: 600;
+            font-size: 1.5em;
             margin-bottom: 20px;
-            color: #1e293b;
+            color: #333;
+            border-bottom: 2px solid #4facfe;
+            padding-bottom: 10px;
         }
         
         .form-group {
@@ -72,85 +81,79 @@
         label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 500;
-            color: #374151;
+            font-weight: 600;
+            color: #555;
         }
         
         select, textarea, input {
             width: 100%;
             padding: 12px;
-            border: 2px solid #d1d5db;
+            border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 14px;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s ease;
         }
         
         select:focus, textarea:focus, input:focus {
             outline: none;
-            border-color: #4f46e5;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
         }
         
         textarea {
             resize: vertical;
-            min-height: 120px;
+            min-height: 100px;
         }
         
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        .btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
         }
         
-        .btn-primary:hover {
+        .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
         }
         
         .btn-secondary {
-            background: #6b7280;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #4b5563;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
         .response-area {
             background: white;
-            border: 2px solid #e5e7eb;
+            border: 2px solid #ddd;
             border-radius: 8px;
             padding: 20px;
             min-height: 200px;
             font-family: 'Courier New', monospace;
             white-space: pre-wrap;
             overflow-y: auto;
+            max-height: 400px;
         }
         
         .loading {
             display: none;
             text-align: center;
             padding: 20px;
-            color: #6b7280;
+            color: #666;
         }
         
         .spinner {
-            border: 3px solid #f3f4f6;
-            border-top: 3px solid #4f46e5;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
             border-radius: 50%;
             width: 30px;
             height: 30px;
@@ -163,38 +166,26 @@
             100% { transform: rotate(360deg); }
         }
         
-        .endpoints {
-            background: #f1f5f9;
-            padding: 20px;
-            margin-top: 20px;
-            border-radius: 10px;
+        .status-success {
+            color: #28a745;
+            font-weight: bold;
         }
         
-        .endpoint {
-            background: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border-left: 4px solid #4f46e5;
+        .status-error {
+            color: #dc3545;
+            font-weight: bold;
         }
         
-        .endpoint-method {
-            font-weight: 600;
-            color: #4f46e5;
-        }
-        
-        .endpoint-url {
-            font-family: 'Courier New', monospace;
-            background: #f8fafc;
-            padding: 5px 8px;
-            border-radius: 4px;
-            margin: 5px 0;
+        .status-fallback {
+            color: #ffc107;
+            font-weight: bold;
         }
         
         @media (max-width: 768px) {
-            .playground {
+            .main-content {
                 grid-template-columns: 1fr;
                 gap: 20px;
+                padding: 20px;
             }
             
             .header h1 {
@@ -206,178 +197,190 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 GPT API Playground</h1>
-            <p>Test and interact with multiple AI models through our API</p>
+            <h1>🤖 G4F Chat API Playground</h1>
+            <p>Test and interact with multiple AI models through g4f API</p>
         </div>
         
-        <div class="playground">
-            <div class="input-section">
-                <h2 class="section-title">🎮 API Testing</h2>
+        <div class="main-content">
+            <div class="chat-section">
+                <h2 class="section-title">💬 Chat Interface</h2>
                 
                 <div class="form-group">
-                    <label for="model">Select Model:</label>
-                    <select id="model">
+                    <label for="model-select">Select AI Model:</label>
+                    <select id="model-select">
                         <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
                         <option value="gpt-4">GPT-4</option>
-                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
                         <option value="claude-3-haiku">Claude 3 Haiku</option>
+                        <option value="claude-3-sonnet">Claude 3 Sonnet</option>
                         <option value="gemini-pro">Gemini Pro</option>
                         <option value="llama-2-7b">Llama 2 7B</option>
-                        <option value="mixtral-8x7b">Mixtral 8x7B</option>
+                        <option value="llama-2-13b">Llama 2 13B</option>
+                        <option value="mistral-7b">Mistral 7B</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="message">Your Message:</label>
-                    <textarea id="message" placeholder="Type your message here...">Hello! How are you?</textarea>
+                    <label for="message-input">Your Message:</label>
+                    <textarea id="message-input" placeholder="Type your message here...">Hello, what is artificial intelligence?</textarea>
                 </div>
                 
                 <div class="form-group">
-                    <label for="sessionId">Session ID (optional):</label>
-                    <input type="text" id="sessionId" placeholder="Leave empty for default session">
+                    <label for="session-input">Session ID (optional):</label>
+                    <input type="text" id="session-input" placeholder="Leave empty for auto-generated session">
                 </div>
                 
-                <div class="button-group">
-                    <button class="btn-primary" onclick="sendMessage()">💬 Send Message</button>
-                    <button class="btn-secondary" onclick="testHealth()">🏥 Test Health</button>
-                    <button class="btn-secondary" onclick="getModels()">📋 Get Models</button>
-                    <button class="btn-secondary" onclick="clearResponse()">🗑️ Clear</button>
-                </div>
-            </div>
-            
-            <div class="output-section">
-                <h2 class="section-title">📤 API Response</h2>
-                <div class="loading" id="loading">
+                <button class="btn" onclick="sendChatMessage()">🚀 Send Message</button>
+                <button class="btn btn-secondary" onclick="clearResponse()">🗑️ Clear</button>
+                
+                <div class="loading" id="chat-loading">
                     <div class="spinner"></div>
-                    <p>Processing your request...</p>
+                    <p>Getting AI response...</p>
                 </div>
-                <div class="response-area" id="response">
-                    Click a button to test the API endpoints...
+                
+                <div class="form-group">
+                    <label>AI Response:</label>
+                    <div id="chat-response" class="response-area">Ready to chat! Select a model and send a message.</div>
                 </div>
             </div>
-        </div>
-        
-        <div class="endpoints">
-            <h2 class="section-title">📚 Available Endpoints</h2>
             
-            <div class="endpoint">
-                <div class="endpoint-method">GET</div>
-                <div class="endpoint-url">/api/health</div>
-                <p>Check API health status</p>
-            </div>
-            
-            <div class="endpoint">
-                <div class="endpoint-method">GET</div>
-                <div class="endpoint-url">/api/models</div>
-                <p>Get list of available AI models</p>
-            </div>
-            
-            <div class="endpoint">
-                <div class="endpoint-method">POST</div>
-                <div class="endpoint-url">/api/chat</div>
-                <p>Chat with AI using any available model</p>
-            </div>
-            
-            <div class="endpoint">
-                <div class="endpoint-method">POST</div>
-                <div class="endpoint-url">/api/chat/{model}</div>
-                <p>Chat with a specific AI model</p>
-            </div>
-            
-            <div class="endpoint">
-                <div class="endpoint-method">GET</div>
-                <div class="endpoint-url">/api/history/{session_id}</div>
-                <p>Get chat history for a session</p>
+            <div class="api-section">
+                <h2 class="section-title">🔧 API Endpoints</h2>
+                
+                <button class="btn" onclick="testEndpoint('/api/health')">🏥 Health Check</button>
+                <button class="btn" onclick="testEndpoint('/api/models')">📋 List Models</button>
+                <button class="btn" onclick="testEndpoint('/api/')">ℹ️ API Info</button>
+                <button class="btn btn-secondary" onclick="testChatEndpoint()">💬 Test Chat</button>
+                
+                <div class="loading" id="api-loading">
+                    <div class="spinner"></div>
+                    <p>Testing endpoint...</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>API Response:</label>
+                    <div id="api-response" class="response-area">Click any button above to test API endpoints.</div>
+                </div>
+                
+                <div class="form-group">
+                    <h3>📖 Quick Documentation</h3>
+                    <div style="background: white; padding: 15px; border-radius: 8px; font-size: 14px;">
+                        <p><strong>Base URL:</strong> <span id="base-url"></span></p>
+                        <p><strong>Chat POST:</strong> /api/chat</p>
+                        <p><strong>Chat GET:</strong> /api/chat?test=true&message=Hello</p>
+                        <p><strong>Model Chat:</strong> /api/chat/gpt-4?test=true&message=Hi</p>
+                        <p><strong>History:</strong> /api/history/session-id</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = window.location.origin;
+        // Set base URL
+        document.getElementById('base-url').textContent = window.location.origin;
         
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('response').style.display = 'none';
-        }
+        // Test health endpoint on page load
+        window.addEventListener('load', () => {
+            testEndpoint('/api/health');
+        });
         
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('response').style.display = 'block';
-        }
-        
-        function displayResponse(data) {
-            document.getElementById('response').textContent = JSON.stringify(data, null, 2);
-        }
-        
-        async function sendMessage() {
-            const model = document.getElementById('model').value;
-            const message = document.getElementById('message').value;
-            const sessionId = document.getElementById('sessionId').value || 'playground-session';
+        async function sendChatMessage() {
+            const model = document.getElementById('model-select').value;
+            const message = document.getElementById('message-input').value;
+            const sessionId = document.getElementById('session-input').value;
             
             if (!message.trim()) {
                 alert('Please enter a message');
                 return;
             }
             
-            showLoading();
+            const loading = document.getElementById('chat-loading');
+            const responseDiv = document.getElementById('chat-response');
+            
+            loading.style.display = 'block';
+            responseDiv.textContent = 'Sending message...';
             
             try {
-                const response = await fetch(`${API_BASE}/api/chat`, {
+                const payload = {
+                    message: message,
+                    model: model
+                };
+                
+                if (sessionId.trim()) {
+                    payload.session_id = sessionId.trim();
+                }
+                
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [{ role: 'user', content: message }],
-                        session_id: sessionId
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 const data = await response.json();
-                displayResponse(data);
+                
+                // Format response with status styling
+                let formattedResponse = JSON.stringify(data, null, 2);
+                
+                if (data.status === 'success') {
+                    responseDiv.className = 'response-area status-success';
+                } else if (data.status === 'error') {
+                    responseDiv.className = 'response-area status-error';
+                } else if (data.status === 'fallback') {
+                    responseDiv.className = 'response-area status-fallback';
+                } else {
+                    responseDiv.className = 'response-area';
+                }
+                
+                responseDiv.textContent = formattedResponse;
+                
             } catch (error) {
-                displayResponse({ error: error.message });
-            } finally {
-                hideLoading();
+                responseDiv.className = 'response-area status-error';
+                responseDiv.textContent = `Error: ${error.message}`;
             }
+            
+            loading.style.display = 'none';
         }
         
-        async function testHealth() {
-            showLoading();
+        async function testEndpoint(endpoint) {
+            const loading = document.getElementById('api-loading');
+            const responseDiv = document.getElementById('api-response');
+            
+            loading.style.display = 'block';
+            responseDiv.textContent = 'Testing endpoint...';
             
             try {
-                const response = await fetch(`${API_BASE}/api/health`);
+                const response = await fetch(endpoint);
                 const data = await response.json();
-                displayResponse(data);
+                
+                responseDiv.className = 'response-area';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+                
             } catch (error) {
-                displayResponse({ error: error.message });
-            } finally {
-                hideLoading();
+                responseDiv.className = 'response-area status-error';
+                responseDiv.textContent = `Error: ${error.message}`;
             }
+            
+            loading.style.display = 'none';
         }
         
-        async function getModels() {
-            showLoading();
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/models`);
-                const data = await response.json();
-                displayResponse(data);
-            } catch (error) {
-                displayResponse({ error: error.message });
-            } finally {
-                hideLoading();
-            }
+        async function testChatEndpoint() {
+            const endpoint = '/api/chat?test=true&message=Hello, this is a test message&model=gpt-3.5-turbo';
+            await testEndpoint(endpoint);
         }
         
         function clearResponse() {
-            document.getElementById('response').textContent = 'Response cleared. Ready for new requests...';
+            document.getElementById('chat-response').textContent = 'Ready to chat! Select a model and send a message.';
+            document.getElementById('chat-response').className = 'response-area';
         }
         
-        // Test API on page load
-        window.addEventListener('load', function() {
-            testHealth();
+        // Allow Enter key to send message
+        document.getElementById('message-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                sendChatMessage();
+            }
         });
     </script>
 </body>
