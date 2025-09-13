@@ -6,6 +6,20 @@ import logging
 # In-memory chat history (for demo, use session_id)
 chat_histories = {}
 
+@api_bp.route('/')
+def root():
+    return jsonify({
+        'message': 'GPT API is running',
+        'version': '1.0.0',
+        'endpoints': {
+            'health': '/api/health',
+            'models': '/api/models',
+            'chat': '/api/chat',
+            'chat_with_model': '/api/chat/<model>',
+            'history': '/api/history/<session_id>'
+        }
+    })
+
 @api_bp.route('/health')
 def health():
     return jsonify({'status': 'healthy', 'message': 'API is running'})
