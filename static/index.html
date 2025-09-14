@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Provider AI API Playground</title>
+    <script src="https://js.puter.com/v2/"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+        button:hover { background: #0056b3; }
+        button.puter-btn { background: #28a745; }
+        button.puter-btn:hover { background: #218838; }
+        #response { margin-top: 20px; padding: 15px; background: white; border-radius: 4px; white-space: pre-wrap; }
+        .provider-status { margin: 10px 0; padding: 10px; background: #e9ecef; border-radius: 4px; }
+        .puter-section { background: #e8f5e8; border-left: 4px solid #28a745; }
+        .api-section { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .tabs { display: flex; margin-bottom: 20px; }
+        .tab { padding: 10px 20px; background: #ddd; border: none; cursor: pointer; margin-right: 5px; border-radius: 4px 4px 0 0; }
+        .tab.active { background: #007bff; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Free AI Models - No API Keys Required!</h1>
+    
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('puter')">🔥 Puter.js (400+ Free Models)</button>
+        <button class="tab" onclick="switchTab('api')">🔧 Backend API</button>
+    </div>
+
+    <!-- Puter.js Section (Completely Free) -->
+    <div id="puter-tab" class="tab-content active">
+        <div class="container puter-section">
+            <h2>🎉 Puter.js - 400+ Free AI Models</h2>
+            <p><strong>✅ No API Keys • ✅ No Limits • ✅ GPT-4o, Claude, Gemini, Llama, DeepSeek & More!</strong></p>
+            
+            <div id="puterStatus" class="provider-status">
+                <strong>Initializing Puter.js...</strong>
+            </div>
+
+            <form id="puterForm">
+                <div class="form-group">
+                    <label for="puterModel">AI Model (Free):</label>
+                    <select id="puterModel" name="model">
+                        <option value="gpt-4o">GPT-4o (Latest OpenAI)</option>
+                        <option value="claude">Claude (Anthropic)</option>
+                        <option value="gemini">Gemini (Google)</option>
+                        <option value="openrouter:meta-llama/llama-3.3-70b">Llama 3.3 70B</option>
+                        <option value="deepseek-chat">DeepSeek V3</option>
+                        <option value="deepseek-reasoner">DeepSeek R1</option>
+                        <option value="qwen/qwen3-235b-a22b">Qwen 235B</option>
+                        <option value="x-ai/grok-4">Grok 4 (xAI)</option>
+                        <option value="perplexity/sonar">Perplexity Sonar</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="puterMessage">Message:</label>
+                    <textarea id="puterMessage" name="message" rows="4" placeholder="Enter your message here... (Try: 'Write a Python function to calculate fibonacci numbers')"></textarea>
+                </div>
+                
+                <button type="submit" class="puter-btn">🚀 Send to Free AI Models</button>
+            </form>
+
+            <div id="puterResponse"></div>
+        </div>
+    </div>
+
+    <!-- Backend API Section -->
+    <div id="api-tab" class="tab-content">
+        <div class="container api-section">
+            <h2>🔧 Backend API Status</h2>
+            <p>Backend providers for server-side integration:</p>
+            
+            <div id="providerStatus" class="provider-status">
+                <strong>Loading provider status...</strong>
+            </div>
+
+            <form id="chatForm">
+                <div class="form-group">
+                    <label for="model">AI Model:</label>
+                    <select id="model" name="model">
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="claude">Claude</option>
+                        <option value="deepseek-r1">DeepSeek R1</option>
+                        <option value="llama3">Llama 3</option>
+                        <option value="mistral">Mistral</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="message">Message:</label>
+                    <textarea id="message" name="message" rows="4" placeholder="Enter your message here..."></textarea>
+                </div>
+                
+                <button type="submit">Send to Backend API</button>
+            </form>
+
+            <div id="response"></div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        // Initialize Puter.js status
+        document.getElementById('puterStatus').innerHTML = '<strong>✅ Puter.js Ready!</strong><br>400+ models available including GPT-4o, Claude, Gemini, Llama, DeepSeek, Grok, and more!<br><em>No API keys required - completely free to use!</em>';
+
+        // Puter.js form handler
+        document.getElementById('puterForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const model = document.getElementById('puterModel').value;
+            const message = document.getElementById('puterMessage').value;
+            const responseDiv = document.getElementById('puterResponse');
+            
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            responseDiv.innerHTML = '🔄 Generating response with ' + model + '...';
+            
+            try {
+                // Use Puter.js directly for free AI models
+                const response = await puter.ai.chat(message, { model: model });
+                
+                responseDiv.innerHTML = `
+<strong>✅ Success!</strong>
+<strong>Model:</strong> ${model}
+<strong>Provider:</strong> Puter.js (Free)
+<strong>Status:</strong> Success
+
+<strong>Response:</strong>
+${response}`;
+            } catch (error) {
+                responseDiv.innerHTML = `
+<strong>❌ Error:</strong>
+${error.message}
+
+<em>Note: Some models might require user authentication. Try different models or check Puter.js documentation.</em>`;
+            }
+        });
+
+        // Backend API status loader
+        fetch('/api/providers')
+            .then(response => response.json())
+            .then(data => {
+                const statusDiv = document.getElementById('providerStatus');
+                const providers = data.providers;
+                let statusHTML = '<strong>Backend Provider Status:</strong><br>';
+                for (const [name, info] of Object.entries(providers)) {
+                    statusHTML += `${name}: ${info.status} (${info.description})<br>`;
+                }
+                statusDiv.innerHTML = statusHTML;
+            })
+            .catch(error => {
+                document.getElementById('providerStatus').innerHTML = '<strong>Error loading provider status</strong>';
+            });
+
+        // Backend API form handler
+        document.getElementById('chatForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const model = document.getElementById('model').value;
+            const message = document.getElementById('message').value;
+            const responseDiv = document.getElementById('response');
+            
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            responseDiv.innerHTML = 'Sending request to backend API...';
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        model: model
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    responseDiv.innerHTML = `Error: ${data.error}`;
+                } else {
+                    responseDiv.innerHTML = `Model: ${data.model}\nProvider: ${data.provider}\nStatus: ${data.status}\n\nResponse:\n${data.response}`;
+                }
+            } catch (error) {
+                responseDiv.innerHTML = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
