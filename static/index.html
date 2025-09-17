@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Multi-Provider AI Chat</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .user-message {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        .ai-message {
+            background: white;
+            border: 1px solid #ddd;
+            margin-right: auto;
+        }
+        .message-meta {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+        .input-section {
+            padding: 20px;
+        }
+        .model-selection {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        select, input, button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        select {
+            flex: 1;
+            max-width: 200px;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            min-width: 80px;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .verify-btn {
+            background: #28a745;
+        }
+        .verify-btn:hover {
+            background: #218838;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Enhanced Multi-Provider AI Chat</h1>
+            <p>Powered by g4f, GPT4All, Ollama & Pollinations - No API Keys Required!</p>
+        </div>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="message ai-message">
+                <strong>AI Assistant:</strong> Welcome! I'm powered by multiple AI providers to ensure you get real responses from actual AI models. Select a model and start chatting!
+                <div class="message-meta">Multi-Provider System Ready</div>
+            </div>
+        </div>
+        
+        <div class="input-section">
+            <div class="status" id="status"></div>
+            
+            <div class="model-selection">
+                <select id="modelSelect">
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="claude-3-haiku">Claude 3 Haiku</option>
+                    <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+                    <option value="gemini-pro">Gemini Pro</option>
+                    <option value="llama-3-8b">Llama 3 8B</option>
+                    <option value="mistral-7b">Mistral 7B</option>
+                    <option value="mixtral-8x7b">Mixtral 8x7B</option>
+                    <option value="qwen-2.5-7b">Qwen 2.5 7B</option>
+                </select>
+                <button id="verifyBtn" class="verify-btn" onclick="verifyModel()">Verify Model</button>
+                <button onclick="checkProviders()">Check Providers</button>
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="messageInput" placeholder="Type your message... (Try: 'Who are you and who developed you?')" onkeypress="handleKeyPress(event)">
+                <button id="sendBtn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            setTimeout(() => status.style.display = 'none', 5000);
+        }
+        
+        function addMessage(content, isUser = false, model = '', provider = '') {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            
+            const metaInfo = model ? `Model: ${model}${provider ? `, Provider: ${provider}` : ''}` : '';
+            messageDiv.innerHTML = `
+                <strong>${isUser ? 'You' : 'AI'}:</strong> ${content}
+                ${metaInfo ? `<div class="message-meta">${metaInfo}</div>` : ''}
+            `;
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const modelSelect = document.getElementById('modelSelect');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            const message = messageInput.value.trim();
+            const model = modelSelect.value;
+            
+            if (!message) return;
+            
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+            
+            addMessage(message, true);
+            messageInput.value = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        model: model,
+                        session_id: 'web-session'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.response) {
+                    addMessage(data.response, false, model, data.provider);
+                    if (data.status === 'success') {
+                        showStatus(`✅ Response from ${data.provider} provider`, 'success');
+                    }
+                } else {
+                    addMessage(`Error: ${data.error || 'Failed to get response'}`, false);
+                    showStatus(`❌ ${data.error || 'Failed to get response'}`, 'error');
+                }
+            } catch (error) {
+                addMessage(`Network Error: ${error.message}`, false);
+                showStatus(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = 'Send';
+            }
+        }
+        
+        async function verifyModel() {
+            const modelSelect = document.getElementById('modelSelect');
+            const verifyBtn = document.getElementById('verifyBtn');
+            const model = modelSelect.value;
+            
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = '<div class="loading"></div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/verify/${model}`);
+                const data = await response.json();
+                
+                if (data.verification.working) {
+                    addMessage(`✅ ${model} is working! Provider: ${data.verification.provider}`, false);
+                    addMessage(`Preview: ${data.verification.response_preview}`, false);
+                    showStatus(`✅ ${model} verified successfully with ${data.verification.provider}`, 'success');
+                } else {
+                    addMessage(`❌ ${model} verification failed: ${data.verification.error}`, false);
+                    showStatus(`❌ ${model} verification failed`, 'error');
+                }
+            } catch (error) {
+                addMessage(`❌ Verification error: ${error.message}`, false);
+                showStatus(`❌ Verification error: ${error.message}`, 'error');
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = 'Verify Model';
+            }
+        }
+        
+        async function checkProviders() {
+            try {
+                const response = await fetch(`${API_BASE}/providers`);
+                const data = await response.json();
+                
+                let statusText = 'Provider Status:\\n';
+                for (const [provider, status] of Object.entries(data.providers)) {
+                    statusText += `${provider}: ${status.available ? '✅ Available' : '❌ Unavailable'}\\n`;
+                    if (!status.available && status.last_error) {
+                        statusText += `  Error: ${status.last_error}\\n`;
+                    }
+                }
+                
+                addMessage(statusText, false);
+            } catch (error) {
+                addMessage(`Error checking providers: ${error.message}`, false);
+            }
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        // Load initial provider status
+        window.addEventListener('load', checkProviders);
+    </script>
+</body>
+</html>
